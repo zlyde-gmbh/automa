@@ -228,24 +228,28 @@ message.on(
         // eslint-disable-next-line object-shorthand
         func: function () {
           return new Promise((resolve) => {
-            const escapePolicy = (script) => {
+            const eventListener = ({ srcElement }) => {
+              if (!srcElement || srcElement.id !== 'automa-csp') return;
+              srcElement.remove();
+              resolve(true);
+            };
+            const escapeElementPolicy = (script) => {
               if (window?.trustedTypes?.createPolicy) {
                 try {
-                  // 生成基于白名单的唯一策略名称，避免与现有策略冲突
                   const baseNames = [
-                    'default',
+                    'automa-policy',
                     'dompurify',
+                    'default',
                     'jSecure',
                     'forceInner',
                   ];
                   let escapeElPolicy = null;
 
-                  // 为每个基础名称尝试添加唯一后缀
                   for (const baseName of baseNames) {
+                    const uniqueName = `${baseName}-automa-${Date.now().toString(
+                      36
+                    )}`;
                     try {
-                      const uniqueName = `${baseName}-automa-${Date.now().toString(
-                        36
-                      )}`;
                       escapeElPolicy = window.trustedTypes.createPolicy(
                         uniqueName,
                         {
@@ -253,55 +257,33 @@ message.on(
                           createScript: (to_escape) => to_escape,
                         }
                       );
-                      // 如果成功创建，跳出循环
                       break;
                     } catch (e) {
-                      // 该名称失败（可能不在白名单中），继续尝试下一个
-                    }
-                  }
-
-                  // 如果基于白名单的策略都失败，尝试纯 automa 策略名
-                  if (!escapeElPolicy) {
-                    try {
-                      const automaName = `automa-policy-${Date.now().toString(
-                        36
-                      )}`;
-                      escapeElPolicy = window.trustedTypes.createPolicy(
-                        automaName,
-                        {
-                          createHTML: (to_escape) => to_escape,
-                          createScript: (to_escape) => to_escape,
-                        }
+                      console.debug(
+                        `Policy name "${uniqueName}" failed, trying next one`
                       );
-                    } catch (e) {
-                      // 最后的尝试也失败了
                     }
                   }
 
-                  // 如果成功创建了策略，使用它
                   if (escapeElPolicy) {
                     return escapeElPolicy.createScript(script);
                   }
-                  // 如果所有策略名称都失败，返回原始脚本
+                  console.debug(
+                    'All trusted policy creation attempts failed, falling back to raw script'
+                  );
                   return script;
                 } catch (e) {
-                  // 捕获任何其他错误并降级
+                  console.debug('Error creating trusted policy:', e);
                   return script;
                 }
               }
+              console.debug(`No trusted policy supported`);
               return script;
             };
-
-            const eventListener = ({ srcElement }) => {
-              if (!srcElement || srcElement.id !== 'automa-csp') return;
-              srcElement.remove();
-              resolve(true);
-            };
-
             document.addEventListener('securitypolicyviolation', eventListener);
             const script = document.createElement('script');
             script.id = 'automa-csp';
-            script.innerText = escapePolicy('console.log("...")');
+            script.innerText = escapeElementPolicy('console.log("...")');
 
             setTimeout(() => {
               document.removeEventListener(
@@ -315,6 +297,7 @@ message.on(
           });
         },
         world: 'MAIN',
+        args: [],
         ...injectOptions,
       });
 
@@ -548,10 +531,57 @@ message.on(
                 return;
               }
 
+              const escapeElementPolicy = (script) => {
+                if (window?.trustedTypes?.createPolicy) {
+                  try {
+                    const baseNames = [
+                      'automa-policy',
+                      'dompurify',
+                      'default',
+                      'jSecure',
+                      'forceInner',
+                    ];
+                    let escapeElPolicy = null;
+
+                    for (const baseName of baseNames) {
+                      const uniqueName = `${baseName}-automa-${Date.now().toString(
+                        36
+                      )}`;
+                      try {
+                        escapeElPolicy = window.trustedTypes.createPolicy(
+                          uniqueName,
+                          {
+                            createHTML: (to_escape) => to_escape,
+                            createScript: (to_escape) => to_escape,
+                          }
+                        );
+                        break;
+                      } catch (e) {
+                        console.debug(
+                          `Policy name "${uniqueName}" failed, trying next one`
+                        );
+                      }
+                    }
+
+                    if (escapeElPolicy) {
+                      return escapeElPolicy.createScript(script);
+                    }
+                    console.debug(
+                      'All trusted policy creation attempts failed, falling back to raw script'
+                    );
+                    return script;
+                  } catch (e) {
+                    console.debug('Error creating trusted policy:', e);
+                    return script;
+                  }
+                }
+                console.debug(`No trusted policy supported`);
+                return script;
+              };
               const script = $documentCtx.createElement('script');
               script.setAttribute(scriptAttr, '');
               script.classList.add('automa-custom-js');
-              script.textContent = `
+              script.textContent = escapeElementPolicy(`
                 (() => {
 
                   // Setup context
@@ -575,12 +605,12 @@ message.on(
                     }
                   }
                 })();
-              `;
+              `);
 
               const preloadScriptsEl = $preloadScripts.map((item) => {
                 const scriptEl = $documentCtx.createElement('script');
                 scriptEl.id = item.id;
-                scriptEl.textContent = item.script;
+                scriptEl.textContent = escapeElementPolicy(item.script);
                 return {
                   element: scriptEl,
                   removeAfterExec: item.removeAfterExec,
@@ -676,12 +706,59 @@ message.on('script:execute-callback', async ({ target, callback }) => {
       target,
       func: ($callbackFn) => {
         try {
+          const escapeElementPolicy = (script) => {
+            if (window?.trustedTypes?.createPolicy) {
+              try {
+                const baseNames = [
+                  'automa-policy',
+                  'dompurify',
+                  'default',
+                  'jSecure',
+                  'forceInner',
+                ];
+                let escapeElPolicy = null;
+
+                for (const baseName of baseNames) {
+                  const uniqueName = `${baseName}-automa-${Date.now().toString(
+                    36
+                  )}`;
+                  try {
+                    escapeElPolicy = window.trustedTypes.createPolicy(
+                      uniqueName,
+                      {
+                        createHTML: (to_escape) => to_escape,
+                        createScript: (to_escape) => to_escape,
+                      }
+                    );
+                    break;
+                  } catch (e) {
+                    console.debug(
+                      `Policy name "${uniqueName}" failed, trying next one`
+                    );
+                  }
+                }
+
+                if (escapeElPolicy) {
+                  return escapeElPolicy.createScript(script);
+                }
+                console.debug(
+                  'All trusted policy creation attempts failed, falling back to raw script'
+                );
+                return script;
+              } catch (e) {
+                console.debug('Error creating trusted policy:', e);
+                return script;
+              }
+            }
+            console.debug(`No trusted policy supported`);
+            return script;
+          };
           const script = document.createElement('script');
-          script.textContent = `
+          script.textContent = escapeElementPolicy(`
           (() => {
             ${$callbackFn}
           })()
-          `;
+          `);
           document.body.appendChild(script);
           return { success: true };
         } catch (error) {

@@ -23,9 +23,51 @@ export default function (data) {
     return;
   }
 
+  const escapeElementPolicy = (script) => {
+    if (window?.trustedTypes?.createPolicy) {
+      try {
+        const baseNames = [
+          'automa-policy',
+          'dompurify',
+          'default',
+          'jSecure',
+          'forceInner',
+        ];
+        let escapeElPolicy = null;
+
+        for (const baseName of baseNames) {
+          const uniqueName = `${baseName}-automa-${Date.now().toString(36)}`;
+          try {
+            escapeElPolicy = window.trustedTypes.createPolicy(uniqueName, {
+              createHTML: (to_escape) => to_escape,
+              createScript: (to_escape) => to_escape,
+            });
+            break;
+          } catch (e) {
+            console.debug(
+              `Policy name "${uniqueName}" failed, trying next one`
+            );
+          }
+        }
+
+        if (escapeElPolicy) {
+          return escapeElPolicy.createScript(script);
+        }
+        console.debug(
+          'All trusted policy creation attempts failed, falling back to raw script'
+        );
+        return script;
+      } catch (e) {
+        console.debug('Error creating trusted policy:', e);
+        return script;
+      }
+    }
+    console.debug(`No trusted policy supported`);
+    return script;
+  };
   const preloadScripts = data.preloadScripts.map((item) => {
     const scriptEl = document.createElement('script');
-    scriptEl.textContent = item.script;
+    scriptEl.textContent = escapeElementPolicy(item.script);
 
     (document.body || document.documentElement).appendChild(scriptEl);
 
@@ -38,7 +80,7 @@ export default function (data) {
 
   const script = document.createElement('script');
   script.id = scriptId;
-  script.textContent = `
+  script.textContent = escapeElementPolicy(`
     (() => {
       function automaRefData(keyword, path = '') {
         if (!keyword) return null;
@@ -69,7 +111,7 @@ export default function (data) {
         automaNextBlock({ $error: true, message: error.message });
       }
     })();
-  `;
+  `);
 
   function cleanUp() {
     script.remove();
