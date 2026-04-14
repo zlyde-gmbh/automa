@@ -31,3 +31,6 @@ getPassKey.js
 /business/test
 
 .idea
+
+build.crx
+build.pem

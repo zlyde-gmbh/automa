@@ -82,6 +82,14 @@ v-remixicon/icons: https://preview-v-remixicon.vercel.app/
 
 ![Install in chrome](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)
 
+##### Pack the extension
+
+1. Go to chrome://extensions/ with Developer Mode enabled.
+2. Click the Pack extension button.
+3. Select your build folder. Chrome will generate a .crx file and a .pem (private key) file. Please use the pem from Proton Pass for this.
+4. Drag and drop the .crx file into the chrome://extensions/ page to install it. Keep the .pem file safe; you will need it to pack future updates with the same extension ID.
+
+
 ### Firefox
 1. Open firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click the "Load Temporary Add-on" button.
