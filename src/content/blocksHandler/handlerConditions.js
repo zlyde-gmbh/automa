@@ -56,9 +56,50 @@ async function handleConditionElement({ data, type, id, frameSelector }) {
 async function handleConditionCode({ data, refData }) {
   return new Promise((resolve, reject) => {
     const varName = `automa${nanoid()}`;
+    const escapeElementPolicy = (script) => {
+      if (window?.trustedTypes?.createPolicy) {
+        try {
+          const baseNames = [
+            'automa-policy',
+            'dompurify',
+            'default',
+            'jSecure',
+            'forceInner',
+          ];
+          let escapeElPolicy = null;
 
+          for (const baseName of baseNames) {
+            const uniqueName = `${baseName}-automa-${Date.now().toString(36)}`;
+            try {
+              escapeElPolicy = window.trustedTypes.createPolicy(uniqueName, {
+                createHTML: (to_escape) => to_escape,
+                createScript: (to_escape) => to_escape,
+              });
+              break;
+            } catch (e) {
+              console.debug(
+                `Policy name "${uniqueName}" failed, trying next one`
+              );
+            }
+          }
+
+          if (escapeElPolicy) {
+            return escapeElPolicy.createScript(script);
+          }
+          console.debug(
+            'All trusted policy creation attempts failed, falling back to raw script'
+          );
+          return script;
+        } catch (e) {
+          console.debug('Error creating trusted policy:', e);
+          return script;
+        }
+      }
+      console.debug(`No trusted policy supported`);
+      return script;
+    };
     const scriptEl = document.createElement('script');
-    scriptEl.textContent = `
+    scriptEl.textContent = escapeElementPolicy(`
       (async () => {
         const ${varName} = ${JSON.stringify(refData)};
         ${automaRefDataStr(varName)}
@@ -74,7 +115,7 @@ async function handleConditionCode({ data, refData }) {
         .then((detail) => {
           window.dispatchEvent(new CustomEvent('__automa-condition-code__', { detail }));
         });
-    `;
+    `);
 
     document.body.appendChild(scriptEl);
 

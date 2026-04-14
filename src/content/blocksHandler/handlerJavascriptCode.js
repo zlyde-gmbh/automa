@@ -15,6 +15,48 @@ function javascriptCode({ data, isPreloadScripts, frameSelector }) {
     $documentCtx = iframeCtx;
   }
 
+  const escapeElementPolicy = (script) => {
+    if (window?.trustedTypes?.createPolicy) {
+      try {
+        const baseNames = [
+          'automa-policy',
+          'dompurify',
+          'default',
+          'jSecure',
+          'forceInner',
+        ];
+        let escapeElPolicy = null;
+
+        for (const baseName of baseNames) {
+          const uniqueName = `${baseName}-automa-${Date.now().toString(36)}`;
+          try {
+            escapeElPolicy = window.trustedTypes.createPolicy(uniqueName, {
+              createHTML: (to_escape) => to_escape,
+              createScript: (to_escape) => to_escape,
+            });
+            break;
+          } catch (e) {
+            console.debug(
+              `Policy name "${uniqueName}" failed, trying next one`
+            );
+          }
+        }
+
+        if (escapeElPolicy) {
+          return escapeElPolicy.createScript(script);
+        }
+        console.debug(
+          'All trusted policy creation attempts failed, falling back to raw script'
+        );
+        return script;
+      } catch (e) {
+        console.debug('Error creating trusted policy:', e);
+        return script;
+      }
+    }
+    console.debug(`No trusted policy supported`);
+    return script;
+  };
   data.scripts.forEach((script) => {
     const scriptAttr = `block--${script.id}`;
 
@@ -25,7 +67,7 @@ function javascriptCode({ data, isPreloadScripts, frameSelector }) {
     if (isScriptExists) return;
 
     const scriptEl = $documentCtx.createElement('script');
-    scriptEl.textContent = script.data.code;
+    scriptEl.textContent = escapeElementPolicy(script.data.code);
     scriptEl.setAttribute(scriptAttr, '');
     scriptEl.classList.add('automa-custom-js');
 

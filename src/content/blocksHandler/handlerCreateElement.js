@@ -47,6 +47,48 @@ async function createElement(block) {
     });
   }
 
+  const escapeElementPolicy = (script) => {
+    if (window?.trustedTypes?.createPolicy) {
+      try {
+        const baseNames = [
+          'automa-policy',
+          'dompurify',
+          'default',
+          'jSecure',
+          'forceInner',
+        ];
+        let escapeElPolicy = null;
+
+        for (const baseName of baseNames) {
+          const uniqueName = `${baseName}-automa-${Date.now().toString(36)}`;
+          try {
+            escapeElPolicy = window.trustedTypes.createPolicy(uniqueName, {
+              createHTML: (to_escape) => to_escape,
+              createScript: (to_escape) => to_escape,
+            });
+            break;
+          } catch (e) {
+            console.debug(
+              `Policy name "${uniqueName}" failed, trying next one`
+            );
+          }
+        }
+
+        if (escapeElPolicy) {
+          return escapeElPolicy.createScript(script);
+        }
+        console.debug(
+          'All trusted policy creation attempts failed, falling back to raw script'
+        );
+        return script;
+      } catch (e) {
+        console.debug('Error creating trusted policy:', e);
+        return script;
+      }
+    }
+    console.debug(`No trusted policy supported`);
+    return script;
+  };
   if (!data?.dontInjectJS) {
     data.preloadScripts.forEach((item) => {
       const script = document.createElement(item.type);
@@ -58,7 +100,9 @@ async function createElement(block) {
 
     const script = document.createElement('script');
     script.id = `${baseId}-javascript`;
-    script.textContent = `(() => { ${data.automaScript}\n${data.javascript} })()`;
+    script.textContent = escapeElementPolicy(
+      `(() => { ${data.automaScript}\n${data.javascript} })()`
+    );
 
     document.body.appendChild(script);
   }
