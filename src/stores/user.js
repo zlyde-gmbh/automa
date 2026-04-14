@@ -1,4 +1,4 @@
-import { cacheApi, fetchApi } from '@/utils/api';
+// import { cacheApi, fetchApi } from '@/utils/api';
 import { defineStore } from 'pinia';
 import browser from 'webextension-polyfill';
 
@@ -25,6 +25,7 @@ export const useUserStore = defineStore('user', {
   },
   actions: {
     async loadUser(options = false) {
+      /*
       try {
         const user = await cacheApi(
           'user-profile',
@@ -79,6 +80,9 @@ export const useUserStore = defineStore('user', {
         this.retrieved = true;
         console.error(error);
       }
+
+       */
+      return options;
     },
     async signOut() {
       try {
